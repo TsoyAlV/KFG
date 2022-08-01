@@ -1,9 +1,10 @@
 import django.contrib.auth.forms
 from django.db import models
-from django.db.models import ManyToManyField, ForeignKey, CharField, DateField, TimeField,\
+from django.db.models import ManyToManyField, ForeignKey, CharField, DateField, TimeField, \
     IntegerField, BooleanField, FloatField, TextField
 from datetime import date, time
 from django.contrib.auth.models import User
+from django.core.validators import MinValueValidator
 
 
 class Category(models.Model):
@@ -15,16 +16,24 @@ class Category(models.Model):
 
 class Product(models.Model):
     name = CharField(max_length=150)
-    price = FloatField()
-    description = TextField()
+    price = FloatField(default=0)
+    description = TextField(null=True)
     category = ForeignKey(Category, on_delete=models.CASCADE)
+    quantity = IntegerField(default=1)
 
 
 class Combo(models.Model):
-    products = ForeignKey(Product, on_delete=models.CASCADE)
+    products = ManyToManyField(Product, through='QuantityProduct')
     is_action = BooleanField(default=False)
     is_basket = BooleanField(default=False)
-    price = FloatField()
+    price = FloatField(default=0, validators=[MinValueValidator(0.0)])
+
+
+class QuantityProduct(models.Model):
+    product = ForeignKey(Product, on_delete=models.CASCADE)
+    combo = ForeignKey(Combo, on_delete=models.CASCADE)
+    quantity = IntegerField(default=1, null=True)
+
 
 class Staff(models.Model):
     choices_staff = [
@@ -40,19 +49,16 @@ class ProductOrder(models.Model):
     product = ManyToManyField(Product, through="ProductOrderList")
     date = DateField(auto_now=True)
     time_in = TimeField(auto_now=True)
-    time_out = TimeField(null=True)
+    time_out = TimeField(auto_now=True, null=True)
     complete = BooleanField(default=False)
     bring_with = BooleanField(default=False)
     staff_id = ForeignKey(Staff, on_delete=models.CASCADE)
 
-    def time_out_true(self):
-        if self.time_out == True:
-            self.time_out.auto_now()
-            self.complete = "True"
-        else:
-            pass
+    def completed(self):
+        self.complete = True
 
 
 class ProductOrderList(models.Model):
     product = ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = IntegerField(default=1)
     product_order = ForeignKey(ProductOrder, on_delete=models.CASCADE)
